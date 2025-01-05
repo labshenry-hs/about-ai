@@ -9,3 +9,9 @@ def set_seed(seed=42):
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+
+def get_device():
+    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+def count_params(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
