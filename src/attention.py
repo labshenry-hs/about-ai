@@ -13,3 +13,19 @@ class MultiHeadAttention(nn.Module):
         self.W_v = nn.Linear(d_model, d_model)
         self.W_o = nn.Linear(d_model, d_model)
         self.dropout = nn.Dropout(dropout)
+
+    def split_heads(self, x):
+        B, T, D = x.shape
+        return x.view(B, T, self.n_heads, self.d_k).transpose(1, 2)
+
+    def forward(self, q, k, v, mask=None):
+        B = q.shape[0]
+        q = self.split_heads(self.W_q(q))
+        k = self.split_heads(self.W_k(k))
+        v = self.split_heads(self.W_v(v))
+        scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(self.d_k)
+        if mask is not None:
+            scores = scores.masked_fill(mask == 0, -1e9)
+        attn = self.dropout(F.softmax(scores, dim=-1))
+        out = torch.matmul(attn, v).transpose(1, 2).contiguous().view(B, -1, self.n_heads * self.d_k)
+        return self.W_o(out), attn
