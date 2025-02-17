@@ -18,3 +18,12 @@ def train_epoch(model, loader, optimizer, device, grad_clip=1.0):
         optimizer.step()
         total_loss += loss.item()
     return total_loss / len(loader)
+
+class WarmupScheduler:
+    def __init__(self, optimizer, d_model, warmup_steps=4000):
+        self.opt = optimizer; self.d = d_model; self.warmup = warmup_steps; self.step_num = 0
+    def step(self):
+        self.step_num += 1
+        lr = self.d**-0.5 * min(self.step_num**-0.5, self.step_num * self.warmup**-1.5)
+        for g in self.opt.param_groups: g['lr'] = lr
+        self.opt.step()
