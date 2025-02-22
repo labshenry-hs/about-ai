@@ -27,3 +27,12 @@ class WarmupScheduler:
         lr = self.d**-0.5 * min(self.step_num**-0.5, self.step_num * self.warmup**-1.5)
         for g in self.opt.param_groups: g['lr'] = lr
         self.opt.step()
+
+def evaluate(model, loader, device):
+    model.eval(); total = 0; criterion = nn.CrossEntropyLoss(ignore_index=0)
+    with torch.no_grad():
+        for batch in loader:
+            src = batch[:, :-1].to(device); tgt = batch[:, 1:].to(device)
+            out = model(src, src)
+            total += criterion(out.reshape(-1, out.size(-1)), tgt.reshape(-1)).item()
+    return total / len(loader)
