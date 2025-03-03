@@ -29,3 +29,7 @@ class MultiHeadAttention(nn.Module):
         attn = self.dropout(F.softmax(scores, dim=-1))
         out = torch.matmul(attn, v).transpose(1, 2).contiguous().view(B, -1, self.n_heads * self.d_k)
         return self.W_o(out), attn
+
+def make_causal_mask(size, device):
+    mask = torch.triu(torch.ones(size, size, device=device), diagonal=1).bool()
+    return ~mask
