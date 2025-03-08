@@ -36,3 +36,16 @@ def evaluate(model, loader, device):
             out = model(src, src)
             total += criterion(out.reshape(-1, out.size(-1)), tgt.reshape(-1)).item()
     return total / len(loader)
+
+def generate(model, prompt_ids, max_new=50, device='cpu'):
+    model.eval()
+    ids = torch.tensor(prompt_ids, dtype=torch.long).unsqueeze(0).to(device)
+    with torch.no_grad():
+        for _ in range(max_new):
+            from src.attention import make_causal_mask
+            mask = make_causal_mask(ids.size(1), device)
+            logits = model(ids, ids)
+            next_id = logits[:, -1].argmax(-1, keepdim=True)
+            ids = torch.cat([ids, next_id], dim=1)
+            if next_id.item() == 3: break
+    return ids[0].tolist()
