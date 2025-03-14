@@ -49,3 +49,16 @@ def generate(model, prompt_ids, max_new=50, device='cpu'):
             ids = torch.cat([ids, next_id], dim=1)
             if next_id.item() == 3: break
     return ids[0].tolist()
+
+def generate_topk(model, prompt_ids, max_new=50, top_k=50, temp=1.0, device='cpu'):
+    model.eval(); ids = torch.tensor(prompt_ids).unsqueeze(0).to(device)
+    with torch.no_grad():
+        for _ in range(max_new):
+            logits = model(ids, ids)[:, -1] / temp
+            v, _ = torch.topk(logits, top_k)
+            logits[logits < v[:, -1:]] = -float('inf')
+            probs = torch.softmax(logits, -1)
+            next_id = torch.multinomial(probs, 1)
+            ids = torch.cat([ids, next_id], 1)
+            if next_id.item() == 3: break
+    return ids[0].tolist()
