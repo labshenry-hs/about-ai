@@ -24,3 +24,24 @@ class SimpleTokenizer:
 
     def decode(self, ids: List[int]) -> str:
         return " ".join(self.idx2word.get(i, "<unk>") for i in ids)
+
+class BPETokenizer:
+    """Byte-Pair Encoding tokenizer."""
+    def __init__(self, vocab_size=5000):
+        self.vocab_size = vocab_size; self.merges = {}; self.vocab = {}
+    def _get_pairs(self, word):
+        return set(zip(word[:-1], word[1:]))
+    def train(self, texts):
+        words = {}
+        for t in texts:
+            for w in t.split():
+                w_tuple = tuple(list(w) + ['</w>'])
+                words[w_tuple] = words.get(w_tuple, 0) + 1
+        for _ in range(self.vocab_size):
+            pairs = {}
+            for word, freq in words.items():
+                for p in self._get_pairs(list(word)):
+                    pairs[p] = pairs.get(p, 0) + freq
+            if not pairs: break
+            best = max(pairs, key=pairs.get)
+            self.merges[best] = len(self.merges)
