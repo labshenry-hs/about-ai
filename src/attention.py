@@ -33,3 +33,11 @@ class MultiHeadAttention(nn.Module):
 def make_causal_mask(size, device):
     mask = torch.triu(torch.ones(size, size, device=device), diagonal=1).bool()
     return ~mask
+
+class RMSNorm(nn.Module):
+    """Root Mean Square Layer Normalization (Zhang 2019)."""
+    def __init__(self, dim, eps=1e-6):
+        super().__init__(); self.eps = eps; self.weight = nn.Parameter(torch.ones(dim))
+    def forward(self, x):
+        rms = x.pow(2).mean(-1, keepdim=True).add(self.eps).sqrt()
+        return x / rms * self.weight
