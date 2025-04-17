@@ -41,3 +41,22 @@ class RMSNorm(nn.Module):
     def forward(self, x):
         rms = x.pow(2).mean(-1, keepdim=True).add(self.eps).sqrt()
         return x / rms * self.weight
+
+class GroupedQueryAttention(nn.Module):
+    """GQA: fewer KV heads than Q heads (Ainslie 2023)."""
+    def __init__(self, d_model, n_heads, n_kv_heads, dropout=0.1):
+        super().__init__()
+        self.n_heads = n_heads; self.n_kv = n_kv_heads; self.d_k = d_model // n_heads
+        self.W_q = nn.Linear(d_model, d_model)
+        self.W_k = nn.Linear(d_model, n_kv_heads * self.d_k)
+        self.W_v = nn.Linear(d_model, n_kv_heads * self.d_k)
+        self.W_o = nn.Linear(d_model, d_model); self.drop = nn.Dropout(dropout)
+    def forward(self, x, mask=None):
+        B, T, _ = x.shape; g = self.n_heads // self.n_kv
+        q = self.W_q(x).view(B, T, self.n_heads, self.d_k).transpose(1, 2)
+        k = self.W_k(x).view(B, T, self.n_kv, self.d_k).transpose(1, 2).repeat_interleave(g, dim=1)
+        v = self.W_v(x).view(B, T, self.n_kv, self.d_k).transpose(1, 2).repeat_interleave(g, dim=1)
+        scores = torch.matmul(q, k.transpose(-2,-1)) / self.d_k**0.5
+        if mask is not None: scores = scores.masked_fill(~mask, -1e9)
+        out = torch.matmul(self.drop(torch.softmax(scores,-1)), v)
+        return self.W_o(out.transpose(1,2).reshape(B,T,-1))
