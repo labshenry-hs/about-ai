@@ -60,3 +60,20 @@ class GroupedQueryAttention(nn.Module):
         if mask is not None: scores = scores.masked_fill(~mask, -1e9)
         out = torch.matmul(self.drop(torch.softmax(scores,-1)), v)
         return self.W_o(out.transpose(1,2).reshape(B,T,-1))
+
+class KVCacheAttention(nn.Module):
+    """Attention with KV cache for fast autoregressive inference."""
+    def __init__(self, d_model, n_heads):
+        super().__init__()
+        self.n_heads = n_heads; self.d_k = d_model // n_heads
+        self.qkv = nn.Linear(d_model, 3 * d_model); self.out = nn.Linear(d_model, d_model)
+    def forward(self, x, past_kv=None):
+        B, T, C = x.shape
+        qkv = self.qkv(x).reshape(B, T, 3, self.n_heads, self.d_k).permute(2, 0, 3, 1, 4)
+        q, k, v = qkv.unbind(0)
+        if past_kv is not None:
+            k = torch.cat([past_kv[0], k], dim=2)
+            v = torch.cat([past_kv[1], v], dim=2)
+        attn = torch.softmax(q @ k.transpose(-2,-1) / self.d_k**0.5, dim=-1)
+        out = (attn @ v).transpose(1, 2).reshape(B, T, C)
+        return self.out(out), (k, v)
