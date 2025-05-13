@@ -62,3 +62,11 @@ def generate_topk(model, prompt_ids, max_new=50, top_k=50, temp=1.0, device='cpu
             ids = torch.cat([ids, next_id], 1)
             if next_id.item() == 3: break
     return ids[0].tolist()
+
+import os
+def save_checkpoint(model, optimizer, epoch, loss, path):
+    torch.save({"epoch": epoch, "model": model.state_dict(), "optimizer": optimizer.state_dict(), "loss": loss}, path)
+def load_checkpoint(model, optimizer, path):
+    ck = torch.load(path, map_location='cpu')
+    model.load_state_dict(ck['model']); optimizer.load_state_dict(ck['optimizer'])
+    return ck['epoch'], ck['loss']
