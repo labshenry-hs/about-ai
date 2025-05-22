@@ -70,3 +70,18 @@ def load_checkpoint(model, optimizer, path):
     ck = torch.load(path, map_location='cpu')
     model.load_state_dict(ck['model']); optimizer.load_state_dict(ck['optimizer'])
     return ck['epoch'], ck['loss']
+
+def train_epoch_amp(model, loader, optimizer, scaler, device):
+    model.train(); total = 0; crit = nn.CrossEntropyLoss(ignore_index=0)
+    for batch in loader:
+        src = batch[:, :-1].to(device); tgt = batch[:, 1:].to(device)
+        optimizer.zero_grad()
+        with torch.cuda.amp.autocast():
+            out = model(src, src)
+            loss = crit(out.reshape(-1, out.size(-1)), tgt.reshape(-1))
+        scaler.scale(loss).backward()
+        scaler.unscale_(optimizer)
+        nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        scaler.step(optimizer); scaler.update()
+        total += loss.item()
+    return total / len(loader)
