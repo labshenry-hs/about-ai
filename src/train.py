@@ -85,3 +85,20 @@ def train_epoch_amp(model, loader, optimizer, scaler, device):
         scaler.step(optimizer); scaler.update()
         total += loss.item()
     return total / len(loader)
+
+def beam_search(model, prompt_ids, beam_size=4, max_new=50, device='cpu'):
+    model.eval()
+    ids = torch.tensor(prompt_ids).unsqueeze(0).to(device)
+    beams = [(ids, 0.0)]
+    with torch.no_grad():
+        for _ in range(max_new):
+            candidates = []
+            for seq, score in beams:
+                logits = model(seq, seq)[:, -1]
+                log_probs = torch.log_softmax(logits, -1)
+                topk_lp, topk_ids = log_probs.topk(beam_size)
+                for i in range(beam_size):
+                    new_seq = torch.cat([seq, topk_ids[:, i:i+1]], 1)
+                    candidates.append((new_seq, score + topk_lp[0, i].item()))
+            beams = sorted(candidates, key=lambda x: -x[1])[:beam_size]
+    return beams[0][0][0].tolist()
