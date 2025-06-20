@@ -77,3 +77,16 @@ class KVCacheAttention(nn.Module):
         attn = torch.softmax(q @ k.transpose(-2,-1) / self.d_k**0.5, dim=-1)
         out = (attn @ v).transpose(1, 2).reshape(B, T, C)
         return self.out(out), (k, v)
+
+class AttentionWithDropPath(nn.Module):
+    """Stochastic depth / drop path for attention layers."""
+    def __init__(self, d_model, n_heads, drop_path=0.1, attn_drop=0.1):
+        super().__init__()
+        self.attn = MultiHeadAttention(d_model, n_heads, attn_drop)
+        self.drop_path_prob = drop_path
+    def forward(self, x, mask=None):
+        out, w = self.attn(x, x, x, mask)
+        if self.training and self.drop_path_prob > 0:
+            keep = torch.rand(x.shape[0], 1, 1, device=x.device) > self.drop_path_prob
+            out = out * keep.float() / (1 - self.drop_path_prob)
+        return x + out, w
