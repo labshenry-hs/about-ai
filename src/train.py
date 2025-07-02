@@ -102,3 +102,17 @@ def beam_search(model, prompt_ids, beam_size=4, max_new=50, device='cpu'):
                     candidates.append((new_seq, score + topk_lp[0, i].item()))
             beams = sorted(candidates, key=lambda x: -x[1])[:beam_size]
     return beams[0][0][0].tolist()
+
+def nucleus_sampling(model, prompt_ids, p=0.9, temp=1.0, max_new=100, device='cpu'):
+    model.eval(); ids = torch.tensor(prompt_ids).unsqueeze(0).to(device)
+    with torch.no_grad():
+        for _ in range(max_new):
+            logits = model(ids, ids)[:, -1] / temp
+            probs = torch.softmax(logits, -1)
+            sorted_p, sorted_idx = probs.sort(descending=True)
+            cumsum = sorted_p.cumsum(-1)
+            sorted_p[cumsum - sorted_p > p] = 0
+            sorted_p /= sorted_p.sum()
+            next_id = sorted_idx[0, torch.multinomial(sorted_p, 1)]
+            ids = torch.cat([ids, next_id.view(1, 1)], 1)
+    return ids[0].tolist()
