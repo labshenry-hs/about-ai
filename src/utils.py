@@ -23,3 +23,11 @@ def accuracy_topk(logits, targets, k=5):
     topk = logits.topk(k, dim=-1).indices
     correct = topk.eq(targets.unsqueeze(-1)).any(-1)
     return correct.float().mean().item()
+
+def get_linear_schedule(optimizer, num_warmup, num_training):
+    from torch.optim.lr_scheduler import LambdaLR
+    def lr_lambda(current_step):
+        if current_step < num_warmup: return float(current_step) / float(max(1, num_warmup))
+        progress = float(current_step - num_warmup) / float(max(1, num_training - num_warmup))
+        return max(0.0, 1.0 - progress)
+    return LambdaLR(optimizer, lr_lambda)
