@@ -90,3 +90,14 @@ class AttentionWithDropPath(nn.Module):
             keep = torch.rand(x.shape[0], 1, 1, device=x.device) > self.drop_path_prob
             out = out * keep.float() / (1 - self.drop_path_prob)
         return x + out, w
+
+class LoRALinear(nn.Module):
+    """LoRA: Low-Rank Adaptation for efficient fine-tuning (Hu 2021)."""
+    def __init__(self, linear, r=8, alpha=16):
+        super().__init__(); self.linear = linear
+        for p in linear.parameters(): p.requires_grad_(False)
+        import math; d_in, d_out = linear.in_features, linear.out_features
+        self.A = nn.Parameter(torch.randn(r, d_in) / math.sqrt(r))
+        self.B = nn.Parameter(torch.zeros(d_out, r)); self.scale = alpha / r
+    def forward(self, x):
+        return self.linear(x) + x @ self.A.T @ self.B.T * self.scale
