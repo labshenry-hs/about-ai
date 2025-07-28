@@ -16,3 +16,13 @@ class TransformerConfig:
 
     def __post_init__(self):
         assert self.d_model % self.n_heads == 0
+
+    def to_dict(self): return self.__dict__
+
+    @staticmethod
+    def small():
+        return TransformerConfig(d_model=256, n_heads=4, n_layers=4, d_ff=1024)
+
+    @staticmethod
+    def base():
+        return TransformerConfig(d_model=512, n_heads=8, n_layers=6, d_ff=2048)
