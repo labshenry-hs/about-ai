@@ -116,3 +116,15 @@ def nucleus_sampling(model, prompt_ids, p=0.9, temp=1.0, max_new=100, device='cp
             next_id = sorted_idx[0, torch.multinomial(sorted_p, 1)]
             ids = torch.cat([ids, next_id.view(1, 1)], 1)
     return ids[0].tolist()
+
+class LabelSmoothingLoss(nn.Module):
+    def __init__(self, vocab_size, smoothing=0.1, ignore_index=0):
+        super().__init__(); self.smoothing = smoothing; self.ignore = ignore_index; self.vocab = vocab_size
+    def forward(self, pred, target):
+        pred = torch.log_softmax(pred, dim=-1)
+        smooth = torch.full_like(pred, self.smoothing / (self.vocab - 2))
+        smooth.scatter_(-1, target.unsqueeze(-1), 1.0 - self.smoothing)
+        smooth[:, self.ignore] = 0
+        mask = (target != self.ignore)
+        loss = -(smooth * pred).sum(-1)
+        return loss[mask].mean()
