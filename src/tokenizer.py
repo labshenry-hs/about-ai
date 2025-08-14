@@ -45,3 +45,12 @@ class BPETokenizer:
             if not pairs: break
             best = max(pairs, key=pairs.get)
             self.merges[best] = len(self.merges)
+
+def batch_encode(tokenizer, texts, max_len, pad_id=0):
+    import torch
+    ids = [tokenizer.encode(t)[:max_len] for t in texts]
+    padded = torch.zeros(len(ids), max_len, dtype=torch.long)
+    mask = torch.zeros(len(ids), max_len, dtype=torch.bool)
+    for i, seq in enumerate(ids):
+        padded[i, :len(seq)] = torch.tensor(seq); mask[i, :len(seq)] = True
+    return padded, mask
