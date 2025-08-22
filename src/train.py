@@ -128,3 +128,25 @@ class LabelSmoothingLoss(nn.Module):
         mask = (target != self.ignore)
         loss = -(smooth * pred).sum(-1)
         return loss[mask].mean()
+
+def speculative_decode(draft_model, target_model, prompt_ids, K=4, max_new=50, device='cpu'):
+    """Speculative decoding: draft K tokens, verify with target in parallel."""
+    draft_model.eval(); target_model.eval()
+    ids = torch.tensor(prompt_ids).unsqueeze(0).to(device)
+    with torch.no_grad():
+        for _ in range(max_new // K):
+            draft_toks = []
+            cur = ids
+            for _ in range(K):
+                logits = draft_model(cur, cur)[:, -1]
+                t = torch.argmax(logits, -1, keepdim=True)
+                draft_toks.append(t); cur = torch.cat([cur, t], 1)
+            verify_input = torch.cat([ids, *draft_toks], 1)
+            target_logits = target_model(verify_input, verify_input)
+            accepted = 0
+            for i, dt in enumerate(draft_toks):
+                t_prob = torch.softmax(target_logits[:, ids.size(1)+i-1], -1)
+                if torch.rand(1).item() < t_prob[0, dt.item()].item(): accepted += 1
+                else: break
+            ids = verify_input[:, :ids.size(1)+accepted+1]
+    return ids[0].tolist()
