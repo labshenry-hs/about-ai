@@ -31,3 +31,13 @@ def get_linear_schedule(optimizer, num_warmup, num_training):
         progress = float(current_step - num_warmup) / float(max(1, num_training - num_warmup))
         return max(0.0, 1.0 - progress)
     return LambdaLR(optimizer, lr_lambda)
+
+class EarlyStopping:
+    def __init__(self, patience=5, min_delta=1e-4):
+        self.patience = patience; self.min_delta = min_delta; self.best = float('inf'); self.count = 0; self.stop = False
+    def __call__(self, val_loss):
+        if val_loss < self.best - self.min_delta: self.best = val_loss; self.count = 0
+        else:
+            self.count += 1
+            if self.count >= self.patience: self.stop = True
+        return self.stop
