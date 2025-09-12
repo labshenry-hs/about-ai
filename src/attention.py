@@ -101,3 +101,18 @@ class LoRALinear(nn.Module):
         self.B = nn.Parameter(torch.zeros(d_out, r)); self.scale = alpha / r
     def forward(self, x):
         return self.linear(x) + x @ self.A.T @ self.B.T * self.scale
+
+class SlidingWindowAttention(nn.Module):
+    """Local attention with sliding window of size w (Beltagy 2020)."""
+    def __init__(self, d_model, n_heads, window=256):
+        super().__init__(); self.window = window
+        self.attn = MultiHeadAttention(d_model, n_heads)
+    def forward(self, x, mask=None):
+        B, T, D = x.shape; w = self.window; outputs = []
+        for start in range(0, T, w):
+            end = min(start + w, T)
+            ctx_start = max(0, start - w // 2)
+            chunk = x[:, ctx_start:end]
+            out, _ = self.attn(x[:, start:end], chunk, chunk)
+            outputs.append(out)
+        return torch.cat(outputs, dim=1)
