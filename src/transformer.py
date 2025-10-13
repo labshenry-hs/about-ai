@@ -67,3 +67,21 @@ class Transformer(nn.Module):
     def forward(self, src, tgt, src_mask=None, tgt_mask=None):
         enc = self.encode(src, src_mask)
         return self.decode(tgt, enc, src_mask, tgt_mask)
+
+class GPTDecoder(nn.Module):
+    """GPT-style decoder-only transformer."""
+    def __init__(self, vocab_size, d_model=512, n_heads=8, n_layers=12, d_ff=2048, dropout=0.1, max_len=1024):
+        super().__init__()
+        from src.positional_encoding import PositionalEncoding
+        self.embed = nn.Embedding(vocab_size, d_model, padding_idx=0)
+        self.pos = PositionalEncoding(d_model, max_len, dropout)
+        self.layers = nn.ModuleList([EncoderLayer(d_model, n_heads, d_ff, dropout) for _ in range(n_layers)])
+        self.norm = nn.LayerNorm(d_model)
+        self.head = nn.Linear(d_model, vocab_size, bias=False)
+        self.embed.weight = self.head.weight  # weight tying
+    def forward(self, ids):
+        B, T = ids.shape
+        x = self.pos(self.embed(ids))
+        mask = torch.tril(torch.ones(T, T, device=ids.device)).bool()
+        for layer in self.layers: x = layer(x, mask)
+        return self.head(self.norm(x))
