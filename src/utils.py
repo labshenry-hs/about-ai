@@ -41,3 +41,11 @@ class EarlyStopping:
             self.count += 1
             if self.count >= self.patience: self.stop = True
         return self.stop
+
+def cosine_similarity_matrix(a, b):
+    import torch.nn.functional as F
+    a = F.normalize(a, dim=-1); b = F.normalize(b, dim=-1)
+    return torch.mm(a, b.T)
+
+def moving_average(values, window=10):
+    return [sum(values[max(0,i-window):i+1])/len(values[max(0,i-window):i+1]) for i in range(len(values))]
