@@ -116,3 +116,8 @@ class SlidingWindowAttention(nn.Module):
             out, _ = self.attn(x[:, start:end], chunk, chunk)
             outputs.append(out)
         return torch.cat(outputs, dim=1)
+
+def flash_attention_forward(q, k, v, scale=None, causal=False):
+    """PyTorch 2.0 scaled_dot_product_attention (FlashAttention-backed)."""
+    if scale is None: scale = q.size(-1) ** -0.5
+    return torch.nn.functional.scaled_dot_product_attention(q, k, v, scale=scale, is_causal=causal)
