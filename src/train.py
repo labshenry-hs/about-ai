@@ -150,3 +150,7 @@ def speculative_decode(draft_model, target_model, prompt_ids, K=4, max_new=50, d
                 else: break
             ids = verify_input[:, :ids.size(1)+accepted+1]
     return ids[0].tolist()
+
+def cosine_annealing_with_restarts(optimizer, T_0=1000, T_mult=2, eta_min=1e-6):
+    from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
+    return CosineAnnealingWarmRestarts(optimizer, T_0=T_0, T_mult=T_mult, eta_min=eta_min)
