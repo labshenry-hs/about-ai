@@ -43,3 +43,19 @@ class MixtureOfExperts(nn.Module):
                 mask = (idx[:, k] == e)
                 if mask.any(): out[mask] += gates[mask, k:k+1] * self.experts[e](x_flat[mask])
         return out.view(B, T, D)
+
+class ExpertChoiceRouting(nn.Module):
+    """Expert-choice MoE: experts select top tokens (Zhou 2022)."""
+    def __init__(self, d_model, n_experts=8, capacity=32, d_ff=2048):
+        super().__init__()
+        self.n_exp = n_experts; self.cap = capacity
+        self.router = nn.Linear(d_model, n_experts, bias=False)
+        self.experts = nn.ModuleList([FeedForward(d_model, d_ff) for _ in range(n_experts)])
+    def forward(self, x):
+        B, T, D = x.shape; x_flat = x.view(-1, D); N = x_flat.size(0)
+        scores = torch.softmax(self.router(x_flat).T, dim=-1)
+        _, indices = scores.topk(min(self.cap, N), dim=-1)
+        out = torch.zeros_like(x_flat)
+        for e, expert in enumerate(self.experts):
+            idx = indices[e]; out[idx] += expert(x_flat[idx])
+        return out.view(B, T, D)
