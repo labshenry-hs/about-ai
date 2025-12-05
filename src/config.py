@@ -43,3 +43,17 @@ class TrainConfig:
     log_every: int = 100
     eval_every: int = 1000
     save_every: int = 5000
+
+@dataclass
+class LLMConfig(TransformerConfig):
+    """Config for decoder-only LLM."""
+    n_layers: int = 12
+    d_model: int = 768
+    n_heads: int = 12
+    n_kv_heads: int = 4
+    d_ff: int = 3072
+    rope_base: int = 10000
+    use_flash_attn: bool = True
+    use_moe: bool = False
+    n_experts: int = 8
+    top_k_experts: int = 2
