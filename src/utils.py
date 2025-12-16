@@ -49,3 +49,16 @@ def cosine_similarity_matrix(a, b):
 
 def moving_average(values, window=10):
     return [sum(values[max(0,i-window):i+1])/len(values[max(0,i-window):i+1]) for i in range(len(values))]
+
+def compute_bleu(reference, hypothesis, n=4):
+    from collections import Counter
+    import math
+    score = 0.0
+    for k in range(1, n+1):
+        ref_ngrams = Counter(zip(*[reference[i:] for i in range(k)]))
+        hyp_ngrams = Counter(zip(*[hypothesis[i:] for i in range(k)]))
+        overlap = sum((hyp_ngrams & ref_ngrams).values())
+        total = sum(hyp_ngrams.values())
+        score += math.log(overlap / total + 1e-10) if total > 0 else 0
+    bp = min(1.0, math.exp(1 - len(reference) / (len(hypothesis) + 1e-10)))
+    return bp * math.exp(score / n)
