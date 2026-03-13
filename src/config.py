@@ -57,3 +57,16 @@ class LLMConfig(TransformerConfig):
     use_moe: bool = False
     n_experts: int = 8
     top_k_experts: int = 2
+
+from dataclasses import field as dc_field
+
+@dataclasses.dataclass
+class ExperimentConfig:
+    """Full experiment config: model + training + hardware."""
+    model: TransformerConfig = dataclasses.field(default_factory=TransformerConfig)
+    train: TrainConfig = dataclasses.field(default_factory=TrainConfig)
+    seed: int = 42
+    compile: bool = False
+    profile: bool = False
+    tags: list = dataclasses.field(default_factory=list)
+    def to_dict(self): return dataclasses.asdict(self)
