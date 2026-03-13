@@ -154,3 +154,20 @@ def speculative_decode(draft_model, target_model, prompt_ids, K=4, max_new=50, d
 def cosine_annealing_with_restarts(optimizer, T_0=1000, T_mult=2, eta_min=1e-6):
     from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
     return CosineAnnealingWarmRestarts(optimizer, T_0=T_0, T_mult=T_mult, eta_min=eta_min)
+
+class DPOTrainer:
+    """Direct Preference Optimization fine-tuning."""
+    def __init__(self, model, ref_model, beta=0.1, lr=1e-5):
+        self.model = model; self.ref = ref_model; self.beta = beta
+        for p in ref_model.parameters(): p.requires_grad_(False)
+        self.opt = torch.optim.AdamW(model.parameters(), lr=lr)
+    def _logp(self, m, ids):
+        import torch.nn.functional as F
+        logits = m(ids).logits
+        return F.log_softmax(logits[:,:-1],-1).gather(-1,ids[:,1:].unsqueeze(-1)).squeeze(-1).sum(-1)
+    def step(self, chosen, rejected):
+        lc=self._logp(self.model,chosen); lr=self._logp(self.model,rejected)
+        with torch.no_grad(): rc=self._logp(self.ref,chosen); rr=self._logp(self.ref,rejected)
+        import torch.nn.functional as F
+        loss=-F.logsigmoid(self.beta*((lc-rc)-(lr-rr))).mean()
+        self.opt.zero_grad(); loss.backward(); self.opt.step(); return loss.item()
