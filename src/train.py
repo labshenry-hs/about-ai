@@ -171,3 +171,18 @@ class DPOTrainer:
         import torch.nn.functional as F
         loss=-F.logsigmoid(self.beta*((lc-rc)-(lr-rr))).mean()
         self.opt.zero_grad(); loss.backward(); self.opt.step(); return loss.item()
+
+def rlhf_ppo_step(policy, ref_policy, reward_fn, batch_ids, clip=0.2, kl_coef=0.1):
+    """Single PPO step for RLHF."""
+    import torch.nn.functional as F
+    with torch.no_grad():
+        ref_logits = ref_policy(batch_ids).logits
+        ref_lp = F.log_softmax(ref_logits, -1).gather(-1, batch_ids.unsqueeze(-1)).squeeze(-1)
+        rewards = reward_fn(batch_ids)
+    logits = policy(batch_ids).logits
+    lp = F.log_softmax(logits, -1).gather(-1, batch_ids.unsqueeze(-1)).squeeze(-1)
+    ratio = (lp - ref_lp).exp()
+    kl = (lp - ref_lp).mean()
+    shaped = rewards - kl_coef * kl
+    loss = -torch.min(ratio * shaped, ratio.clamp(1-clip, 1+clip) * shaped).mean()
+    return loss
