@@ -186,3 +186,16 @@ def rlhf_ppo_step(policy, ref_policy, reward_fn, batch_ids, clip=0.2, kl_coef=0.
     shaped = rewards - kl_coef * kl
     loss = -torch.min(ratio * shaped, ratio.clamp(1-clip, 1+clip) * shaped).mean()
     return loss
+
+def gradient_accumulation_train(model, loader, optimizer, accum_steps=4, device='cuda'):
+    """Training with gradient accumulation for large effective batch sizes."""
+    model.train(); optimizer.zero_grad(); total_loss=0
+    for i,(x,y) in enumerate(loader):
+        x,y=x.to(device),y.to(device)
+        import torch.nn.functional as F
+        loss=F.cross_entropy(model(x).view(-1,model.vocab_size),y.view(-1))/accum_steps
+        loss.backward()
+        if (i+1)%accum_steps==0:
+            torch.nn.utils.clip_grad_norm_(model.parameters(),1.0); optimizer.step(); optimizer.zero_grad()
+        total_loss+=loss.item()*accum_steps
+    return total_loss/len(loader)
