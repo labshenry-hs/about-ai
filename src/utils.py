@@ -62,3 +62,17 @@ def compute_bleu(reference, hypothesis, n=4):
         score += math.log(overlap / total + 1e-10) if total > 0 else 0
     bp = min(1.0, math.exp(1 - len(reference) / (len(hypothesis) + 1e-10)))
     return bp * math.exp(score / n)
+
+def load_model(path, model, device='cpu'):
+    state = torch.load(path, map_location=device)
+    model.load_state_dict(state['model']); return model, state.get('step', 0)
+
+def quantize_linear(module, bits=8):
+    """Post-training static quantization helper."""
+    import copy; m = copy.deepcopy(module)
+    for name, layer in m.named_modules():
+        if isinstance(layer, torch.nn.Linear):
+            w = layer.weight.data
+            scale = w.abs().max() / (2**(bits-1)-1)
+            layer.weight.data = (w / scale).round().clamp(-(2**(bits-1)), 2**(bits-1)-1) * scale
+    return m
