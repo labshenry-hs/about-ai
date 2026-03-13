@@ -76,3 +76,10 @@ def quantize_linear(module, bits=8):
             scale = w.abs().max() / (2**(bits-1)-1)
             layer.weight.data = (w / scale).round().clamp(-(2**(bits-1)), 2**(bits-1)-1) * scale
     return m
+
+def export_onnx(model, dummy_input, path='model.onnx'):
+    import torch.onnx
+    torch.onnx.export(model, dummy_input, path, opset_version=17,
+                      input_names=['input_ids'], output_names=['logits'],
+                      dynamic_axes={'input_ids':{0:'batch',1:'seq'},'logits':{0:'batch',1:'seq'}})
+    return path
