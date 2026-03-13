@@ -121,3 +121,19 @@ def flash_attention_forward(q, k, v, scale=None, causal=False):
     """PyTorch 2.0 scaled_dot_product_attention (FlashAttention-backed)."""
     if scale is None: scale = q.size(-1) ** -0.5
     return torch.nn.functional.scaled_dot_product_attention(q, k, v, scale=scale, is_causal=causal)
+
+class ALiBiAttention(torch.nn.Module):
+    """ALiBi: Attention with Linear Biases (Press 2022)."""
+    def __init__(self, d_model, n_heads):
+        super().__init__(); self.h=n_heads; self.dh=d_model//n_heads
+        import math
+        slopes=[2**(-8*i/n_heads) for i in range(1,n_heads+1)]
+        self.register_buffer('slopes',torch.tensor(slopes).float())
+        self.qkv=torch.nn.Linear(d_model,3*d_model); self.out=torch.nn.Linear(d_model,d_model)
+    def forward(self,x,mask=None):
+        B,T,_=x.shape; qkv=self.qkv(x).chunk(3,-1)
+        q,k,v=[t.view(B,T,self.h,self.dh).transpose(1,2) for t in qkv]
+        import math; s=q@k.transpose(-2,-1)/math.sqrt(self.dh)
+        pos=torch.arange(T,device=x.device)
+        bias=self.slopes[:,None,None]*(pos[None,:]-pos[:,None]).abs().flip(-1)[None]
+        s=s-bias; import torch.nn.functional as F; return self.out(F.softmax(s,-1)@v).flatten(-2))
